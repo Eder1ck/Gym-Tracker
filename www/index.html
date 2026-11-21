@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Gym Tracker</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#181b22; --card2:#20242d; --line:#2a2f3a;
+    --tx:#e9ecf1; --mut:#8b93a3; --ac:#4ade80; --ac2:#14532d; --red:#f87171;
+    --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  button{font:inherit;color:inherit;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+  button:active{transform:scale(.97)}
+  input,select,textarea{font:inherit;font-size:16px;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%;min-width:0}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
+  #view{padding:calc(var(--st) + 10px) 12px calc(var(--sb) + 84px);max-width:640px;margin:0 auto}
+  h2{font-size:20px;margin:0}
+  h3{font-size:15px;margin:18px 0 8px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .row{display:flex;gap:8px;align-items:center}
+  .grow{flex:1}
+  .mut{color:var(--mut);font-size:13px}
+  .tag{font-size:12px;color:var(--ac);border:1px solid var(--ac2);border-radius:99px;padding:2px 8px}
+
+  /* Semana */
+  .wk{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .wk .t{flex:1;text-align:center}
+  .wk .t b{display:block;font-size:17px}
+  .wk button{width:44px;height:40px;padding:0;font-size:20px}
+  .strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:14px}
+  .strip button{padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+  .strip button small{color:var(--mut);font-size:11px}
+  .strip button.today{border-color:var(--ac)}
+  .strip button.sel{background:var(--ac);color:#06210f;border-color:var(--ac)}
+  .strip button.sel small{color:#06210f}
+  .strip button.has::after{content:"";position:absolute;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
+  .strip button.sel.has::after{background:#06210f}
+
+  .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}
+  .sum div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}
+  .sum b{display:block;font-size:18px}
+  .sum span{font-size:12px;color:var(--mut)}
+
+  /* Tarjetas */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-top:10px}
+  .card.done{border-color:var(--ac2)}
+  .card-h{display:flex;gap:6px;align-items:center}
+  .exname{font-weight:600;font-size:16px;background:transparent;border-color:transparent;padding:6px 4px}
+  .tools{display:flex;gap:4px}
+  .tools button{width:34px;height:34px;padding:0;font-size:14px}
+  .prev{font-size:12px;color:var(--mut);margin:2px 4px 6px}
+  .set,.set-h{display:grid;grid-template-columns:26px 1fr 1fr 44px 34px;gap:6px;align-items:center;margin-top:6px}
+  .set-h{font-size:11px;color:var(--mut);text-transform:uppercase;margin-top:4px}
+  .set .n{text-align:center;color:var(--mut);font-weight:600}
+  .set input{text-align:center;padding:7px 4px}
+  .set .chk{height:38px;padding:0;font-size:18px}
+  .set.ok .chk{background:var(--ac);color:#06210f;border-color:var(--ac)}
+  .set.ok input{border-color:var(--ac2)}
+  .set .x{height:34px;padding:0;background:transparent;border-color:transparent;color:var(--mut)}
+  .addset{width:100%;margin-top:8px;background:transparent;border-style:dashed;color:var(--mut)}
+  .tplrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+  .tplrow label{font-size:11px;color:var(--mut);text-transform:uppercase}
+  .tplrow input{margin-top:3px;text-align:center}
+
+  .addform{display:grid;grid-template-columns:1fr 64px 64px;gap:6px;margin-top:14px}
+  .addform button{grid-column:1/-1;background:var(--ac);color:#06210f;border-color:var(--ac);font-weight:600}
+  .btns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+  .danger{color:var(--red);border-color:#5b2323}
+  .empty{text-align:center;color:var(--mut);padding:24px 8px}
+
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:10px 0}
+  .days button{padding:8px 0}
+  .days button.sel{background:var(--ac);color:#06210f;border-color:var(--ac)}
+
+  .hist button{width:100%;text-align:left;margin-top:6px;display:flex;justify-content:space-between;gap:8px}
+  textarea{min-height:110px;font-family:ui-monospace,monospace;font-size:12px}
+
+  /* Navegación */
+  nav{position:fixed;left:0;right:0;bottom:0;background:#12151bee;backdrop-filter:blur(8px);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(var(--sb) + 6px)}
+  nav button{background:transparent;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--mut)}
+  nav button i{font-style:normal;font-size:20px}
+  nav button.on{color:var(--ac)}
+
+  /* Diálogo */
+  .ov{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .dlg{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:360px;width:100%}
+  .dlg p{margin:0 0 16px}
+  .dlg .row button{flex:1}
+  .dlg .ok{background:var(--ac);color:#06210f;border-color:var(--ac);font-weight:600}
+  .toast{position:fixed;left:50%;bottom:calc(var(--sb) + 80px);transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);padding:8px 14px;border-radius:99px;font-size:13px;z-index:11}
+</style>
+</head>
+<body>
+<main id="view"></main>
+<nav>
+  <button data-a="tab" data-t="entreno"><i>🏋️</i>Entreno</button>
+  <button data-a="tab" data-t="rutina"><i>📋</i>Rutina</button>
+  <button data-a="tab" data-t="datos"><i>💾</i>Datos</button>
+</nav>
+
+<script>
+/* ================== Configuración ================== */
+const KEY = 'gymtracker.v1';
+const DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const DIAS_C = ['L','M','X','J','V','S','D'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+const Cap = window.Capacitor;
+const isNative = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
+const Prefs = isNative ? Cap.Plugins.Preferences : null;   // almacenamiento nativo del teléfono
+const ShareP = isNative ? Cap.Plugins.Share : null;        // menú "Compartir" de Android
+
+/* ================== Fechas ================== */
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const wd = s => (parse(s).getDay() + 6) % 7;               // 0 = lunes ... 6 = domingo
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const monday = s => addDays(s, -wd(s));
+const today = () => iso(new Date());
+const plural = d => d.toLowerCase().endsWith('s') ? d.toLowerCase() : d.toLowerCase() + 's';
+const fmt = s => { const d = parse(s); return `${d.getDate()} ${MESES[d.getMonth()]}`; };
+function weekNum(s) {                                       // semana ISO
+  const thu = parse(addDays(s, 3 - wd(s)));
+  const j4 = iso(new Date(thu.getFullYear(), 0, 4));
+  const firstThu = parse(addDays(j4, 3 - wd(j4)));
+  return 1 + Math.round((thu - firstThu) / 6048e5);
+}
+
+/* ================== Datos ================== */
+let db = empty();
+let ui = { tab: 'entreno', date: today(), tplDay: wd(today()) };
+
+function empty() { const t = {}; for (let i = 0; i < 7; i++) t[i] = []; return { templates: t, logs: {} }; }
+function normalize(o) {
+  const t = {};
+  for (let i = 0; i < 7; i++) t[i] = Array.isArray(o?.templates?.[i]) ? o.templates[i] : [];
+  const logs = (o && typeof o.logs === 'object' && o.logs) || {};
+  return { templates: t, logs };
+}
+async function load() {
+  let raw = null;
+  try { if (Prefs) raw = (await Prefs.get({ key: KEY }))?.value; } catch (e) {}
+  if (!raw) { try { raw = localStorage.getItem(KEY); } catch (e) {} }
+  if (raw) { try { db = normalize(JSON.parse(raw)); } catch (e) {} }
+}
+function save() {
+  const raw = JSON.stringify(db);
+  try { localStorage.setItem(KEY, raw); } catch (e) {}
+  if (Prefs) Prefs.set({ key: KEY, value: raw }).catch(() => {});
+}
+
+const num = v => { v = String(v ?? '').replace(',', '.').trim(); if (v === '') return ''; const n = Number(v); return isFinite(n) ? n : ''; };
+const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Sesión de un día: si no existe, se arma desde la rutina de ese día de la semana */
+function fromTemplate(date) {
+  return {
+    exercises: db.templates[wd(date)].map(t => ({
+      name: t.name,
+      sets: Array.from({ length: Math.max(1, +t.sets || 1) }, () => ({ reps: t.reps ?? '', kg: t.kg ?? '', done: false }))
+    }))
+  };
+}
+function ensureLog(date) { if (!db.logs[date]) db.logs[date] = fromTemplate(date); return db.logs[date]; }
+
+function stats(sess) {
+  let total = 0, done = 0, reps = 0, vol = 0;
+  for (const ex of sess.exercises) for (const s of ex.sets) {
+    total++;
+    if (s.done) { done++; reps += +s.reps || 0; vol += (+s.reps || 0) * (+s.kg || 0); }
+  }
+  return { total, done, reps, vol: Math.round(vol) };
+}
+const hasDone = date => !!db.logs[date] && stats(db.logs[date]).done > 0;
+
+/* Última vez que se hizo un ejercicio con el mismo nombre */
+function previous(name, date) {
+  const key = name.trim().toLowerCase();
+  if (!key) return null;
+  const dates = Object.keys(db.logs).filter(d => d < date).sort().reverse();
+  for (const d of dates) {
+    const ex = db.logs[d].exercises.find(e => e.name.trim().toLowerCase() === key);
+    const sets = ex ? ex.sets.filter(s => s.done) : [];
+    if (sets.length) return { date: d, sets };
+  }
+  return null;
+}
+const setTxt = s => (s.kg !== '' && s.kg != null) ? `${s.reps}×${s.kg}` : `${s.reps}`;
+
+/* ================== Vistas ================== */
+const view = document.getElementById('view');
+
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === ui.tab));
+  view.innerHTML = ui.tab === 'entreno' ? vEntreno() : ui.tab === 'rutina' ? vRutina() : vDatos();
+}
+
+function vEntreno() {
+  const d = ui.date, mon = monday(d), stored = !!db.logs[d];
+  const sess = db.logs[d] || fromTemplate(d);
+  const strip = Array.from({ length: 7 }, (_, i) => {
+    const di = addDays(mon, i);
+    const cls = [di === d && 'sel', di === today() && 'today', hasDone(di) && 'has'].filter(Boolean).join(' ');
+    return `<button class="${cls}" data-a="pick" data-d="${di}"><small>${DIAS_C[i]}</small><b>${parse(di).getDate()}</b></button>`;
+  }).join('');
+
+  const cards = sess.exercises.map((ex, ei) => {
+    const prev = previous(ex.name, d);
+    const all = ex.sets.length && ex.sets.every(s => s.done);
+    const rows = ex.sets.map((s, si) => `
+      <div class="set ${s.done ? 'ok' : ''}">
+        <span class="n">${si + 1}</span>
+        <input inputmode="numeric" data-s="log" data-f="reps" data-ei="${ei}" data-si="${si}" value="${esc(s.reps)}" placeholder="reps">
+        <input inputmode="decimal" data-s="log" data-f="kg" data-ei="${ei}" data-si="${si}" value="${esc(s.kg)}" placeholder="kg">
+        <button class="chk" data-a="toggle" data-ei="${ei}" data-si="${si}">✓</button>
+        <button class="x" data-a="delSet" data-ei="${ei}" data-si="${si}">✕</button>
+      </div>`).join('');
+    return `
+      <section class="card ${all ? 'done' : ''}">
+        <div class="card-h">
+          <input class="exname grow" data-s="log" data-f="name" data-ei="${ei}" value="${esc(ex.name)}">
+          <div class="tools">
+            <button data-a="up" data-s="log" data-ei="${ei}">↑</button>
+            <button data-a="down" data-s="log" data-ei="${ei}">↓</button>
+            <button data-a="delEx" data-s="log" data-ei="${ei}">🗑</button>
+          </div>
+        </div>
+        ${prev ? `<div class="prev">Anterior (${fmt(prev.date)}): ${prev.sets.map(setTxt).join(' · ')}</div>` : ''}
+        <div class="set-h"><span>#</span><span style="text-align:center">Reps</span><span style="text-align:center">Kg</span><span></span><span></span></div>
+        ${rows}
+        <button class="addset" data-a="addSet" data-ei="${ei}">+ Serie</button>
+      </section>`;
+  }).join('');
+
+  return `
+    <div class="wk">
+      <button data-a="week" data-n="-7">‹</button>
+      <div class="t"><b>Semana ${weekNum(d)}</b><span class="mut">${fmt(mon)} – ${fmt(addDays(mon, 6))}</span></div>
+      <button data-a="week" data-n="7">›</button>
+    </div>
+    <div class="strip">${strip}</div>
+    <div class="row">
+      <h2 class="grow">${DIAS[wd(d)]} ${fmt(d)}</h2>
+      ${!stored && sess.exercises.length ? `<span class="tag" id="fromTpl">De la rutina</span>` : ''}
+      ${monday(d) !== monday(today()) ? `<button data-a="goToday">Hoy</button>` : ''}
+    </div>
+    <div class="sum" id="sum">${sumHtml(sess)}</div>
+    ${cards || `<div class="empty">Sin ejercicios para este día.<br>Agrégalos aquí o en la pestaña Rutina.</div>`}
+    ${addForm('log')}
+    <div class="btns">
+      ${sess.exercises.length ? `<button data-a="saveTpl">Guardar como rutina de los ${plural(DIAS[wd(d)])}</button>` : ''}
+      ${stored ? `<button class="danger" data-a="resetDay">Restablecer desde la rutina</button>` : ''}
+    </div>`;
+}
+
+function sumHtml(sess) {
+  const s = stats(sess);
+  return `<div><b>${s.done}/${s.total}</b><span>Series</span></div>
+          <div><b>${s.reps}</b><span>Reps</span></div>
+          <div><b>${s.vol.toLocaleString('es-PE')}</b><span>Volumen kg</span></div>`;
+}
+
+function addForm(scope) {
+  return `
+    <div class="addform">
+      <input id="nName" placeholder="Nuevo ejercicio">
+      <input id="nSets" inputmode="numeric" value="3" placeholder="Series">
+      <input id="nReps" inputmode="numeric" value="10" placeholder="Reps">
+      <button data-a="addEx" data-s="${scope}">+ Agregar ejercicio</button>
+    </div>`;
+}
+
+function vRutina() {
+  const day = ui.tplDay, list = db.templates[day];
+  const days = DIAS_C.map((c, i) => `<button class="${i === day ? 'sel' : ''}" data-a="tplDay" data-n="${i}">${c}</button>`).join('');
+  const cards = list.map((t, ei) => `
+    <section class="card">
+      <div class="card-h">
+        <input class="exname grow" data-s="tpl" data-f="name" data-ei="${ei}" value="${esc(t.name)}">
+        <div class="tools">
+          <button data-a="up" data-s="tpl" data-ei="${ei}">↑</button>
+          <button data-a="down" data-s="tpl" data-ei="${ei}">↓</button>
+          <button data-a="delEx" data-s="tpl" data-ei="${ei}">🗑</button>
+        </div>
+      </div>
+      <div class="tplrow">
+        <label>Series<input inputmode="numeric" data-s="tpl" data-f="sets" data-ei="${ei}" value="${esc(t.sets)}"></label>
+        <label>Reps<input inputmode="numeric" data-s="tpl" data-f="reps" data-ei="${ei}" value="${esc(t.reps)}"></label>
+        <label>Kg<input inputmode="decimal" data-s="tpl" data-f="kg" data-ei="${ei}" value="${esc(t.kg)}"></label>
+      </div>
+    </section>`).join('');
+  const opts = DIAS.map((n, i) => i === day ? '' : `<option value="${i}">${n}</option>`).join('');
+  return `
+    <h2>Rutina semanal</h2>
+    <p class="mut">Plantilla por día. Se usa en los días que todavía no has editado en Entreno.</p>
+    <div class="days">${days}</div>
+    <h3>${DIAS[day]} · ${list.length} ejercicio${list.length === 1 ? '' : 's'}</h3>
+    ${cards || `<div class="empty">Día de descanso (sin ejercicios).</div>`}
+    ${addForm('tpl')}
+    ${list.length ? `
+      <h3>Copiar este día a</h3>
+      <div class="row"><select id="copyTo" class="grow">${opts}</select><button data-a="copyTpl">Copiar</button></div>` : ''}`;
+}
+
+function vDatos() {
+  const dates = Object.keys(db.logs).filter(hasDone).sort().reverse();
+  const hist = dates.map(d => {
+    const s = stats(db.logs[d]);
+    return `<button data-a="pick" data-d="${d}"><span>${DIAS[wd(d)].slice(0, 3)} ${fmt(d)} ${parse(d).getFullYear()}</span>
+            <span class="mut">${s.done} series · ${s.reps} reps · ${s.vol.toLocaleString('es-PE')} kg</span></button>`;
+  }).join('');
+  return `
+    <h2>Datos</h2>
+    <p class="mut">Todo se guarda en este teléfono, sin base de datos externa. Exporta un respaldo de vez en cuando.</p>
+    <h3>Historial (${dates.length})</h3>
+    <div class="hist">${hist || `<div class="empty">Aún no hay entrenamientos registrados.</div>`}</div>
+    <h3>Respaldo</h3>
+    <div class="btns" style="margin-top:0">
+      <button data-a="export">Exportar respaldo</button>
+      <textarea id="io" placeholder="Pega aquí un respaldo para importarlo"></textarea>
+      <button data-a="import">Importar respaldo</button>
+      <button class="danger" data-a="wipe">Borrar todos los datos</button>
+    </div>`;
+}
+
+/* ================== Diálogos ================== */
+function ask(msg, okTxt = 'Sí') {
+  return new Promise(res => {
+    const ov = document.createElement('div');
+    ov.className = 'ov';
+    ov.innerHTML = `<div class="dlg"><p>${esc(msg)}</p><div class="row"><button data-r="0">Cancelar</button><button class="ok" data-r="1">${esc(okTxt)}</button></div></div>`;
+    ov.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b || e.target === ov) { ov.remove(); res(b?.dataset.r === '1'); } });
+    document.body.appendChild(ov);
+  });
+}
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 1800);
+}
+
+/* ================== Acciones ================== */
+const listOf = scope => scope === 'tpl' ? db.templates[ui.tplDay] : ensureLog(ui.date).exercises;
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]');
+  if (!b) return;
+  const a = b.dataset.a, ei = +b.dataset.ei, si = +b.dataset.si, scope = b.dataset.s;
+
+  switch (a) {
+    case 'tab': ui.tab = b.dataset.t; window.scrollTo(0, 0); break;
+    case 'pick': ui.date = b.dataset.d; ui.tab = 'entreno'; break;
+    case 'week': ui.date = addDays(ui.date, +b.dataset.n); break;
+    case 'goToday': ui.date = today(); break;
+    case 'tplDay': ui.tplDay = +b.dataset.n; break;
+
+    case 'toggle': { const s = ensureLog(ui.date).exercises[ei].sets[si]; s.done = !s.done; save(); break; }
+    case 'addSet': {
+      const sets = ensureLog(ui.date).exercises[ei].sets, last = sets[sets.length - 1];
+      sets.push({ reps: last?.reps ?? '', kg: last?.kg ?? '', done: false }); save(); break;
+    }
+    case 'delSet': {
+      const sets = ensureLog(ui.date).exercises[ei].sets;
+      if (sets.length === 1) { if (!(await ask('¿Quitar la única serie? El ejercicio quedará sin series.'))) return; }
+      sets.splice(si, 1); save(); break;
+    }
+    case 'up': case 'down': {
+      const l = listOf(scope), j = a === 'up' ? ei - 1 : ei + 1;
+      if (j < 0 || j >= l.length) return;
+      [l[ei], l[j]] = [l[j], l[ei]]; save(); break;
+    }
+    case 'delEx': {
+      const l = scope === 'tpl' ? db.templates[ui.tplDay] : (db.logs[ui.date] || fromTemplate(ui.date)).exercises;
+      if (!(await ask(`¿Eliminar "${l[ei].name}"?`, 'Eliminar'))) return;
+      listOf(scope).splice(ei, 1); save(); break;
+    }
+    case 'addEx': {
+      const name = document.getElementById('nName').value.trim();
+      if (!name) { document.getElementById('nName').focus(); return; }
+      const sets = Math.max(1, parseInt(document.getElementById('nSets').value) || 1);
+      const reps = num(document.getElementById('nReps').value);
+      if (scope === 'tpl') db.templates[ui.tplDay].push({ name, sets, reps, kg: '' });
+      else {
+        const prev = previous(name, ui.date);              // reutiliza el peso de la última vez
+        const kg = prev ? prev.sets[prev.sets.length - 1].kg : '';
+        ensureLog(ui.date).exercises.push({ name, sets: Array.from({ length: sets }, () => ({ reps, kg, done: false })) });
+      }
+      save(); break;
+    }
+    case 'copyTpl': {
+      const to = +document.getElementById('copyTo').value;
+      if (db.templates[to].length && !(await ask(`¿Reemplazar la rutina del ${DIAS[to].toLowerCase()}?`, 'Reemplazar'))) return;
+      db.templates[to] = db.templates[ui.tplDay].map(t => ({ ...t })); save(); toast(`Copiado a ${DIAS[to]}`); break;
+    }
+    case 'saveTpl': {
+      const day = wd(ui.date), sess = db.logs[ui.date] || fromTemplate(ui.date);
+      if (!(await ask(`¿Usar los ejercicios de hoy como rutina de todos los ${plural(DIAS[day])}?`, 'Guardar'))) return;
+      db.templates[day] = sess.exercises.map(ex => ({ name: ex.name, sets: ex.sets.length || 1, reps: ex.sets[0]?.reps ?? '', kg: ex.sets[ex.sets.length - 1]?.kg ?? '' }));
+      save(); toast('Rutina actualizada'); break;
+    }
+    case 'resetDay': {
+      if (!(await ask('¿Borrar lo registrado este día y volver a la rutina?', 'Restablecer'))) return;
+      delete db.logs[ui.date]; save(); break;
+    }
+
+    case 'export': {
+      const json = JSON.stringify(db);
+      if (ShareP) { try { await ShareP.share({ title: 'Respaldo Gym Tracker', text: json, dialogTitle: 'Guardar respaldo' }); } catch (e) {} return; }
+      const io = document.getElementById('io'); io.value = json; io.select();
+      try { await navigator.clipboard.writeText(json); toast('Respaldo copiado'); } catch (e) { toast('Copia el texto del recuadro'); }
+      return;
+    }
+    case 'import': {
+      let obj;
+      try { obj = JSON.parse(document.getElementById('io').value); } catch (e) { toast('El texto no es un respaldo válido'); return; }
+      if (!obj || !obj.templates || !obj.logs) { toast('El texto no es un respaldo válido'); return; }
+      if (!(await ask('Esto reemplazará todos tus datos actuales. ¿Continuar?', 'Importar'))) return;
+      db = normalize(obj); save(); toast('Respaldo importado'); break;
+    }
+    case 'wipe': {
+      if (!(await ask('¿Borrar TODA la rutina y el historial? No se puede deshacer.', 'Borrar todo'))) return;
+      db = empty(); save(); break;
+    }
+    default: return;
+  }
+  render();
+});
+
+/* Edición de campos: se guarda al salir del campo, sin redibujar (para no perder el foco) */
+document.addEventListener('change', e => {
+  const el = e.target, f = el.dataset.f;
+  if (!f) return;
+  const ei = +el.dataset.ei, si = +el.dataset.si;
+  if (el.dataset.s === 'tpl') {
+    const t = db.templates[ui.tplDay][ei];
+    t[f] = f === 'name' ? el.value.trim() : f === 'sets' ? Math.max(1, parseInt(el.value) || 1) : num(el.value);
+  } else {
+    const ex = ensureLog(ui.date).exercises[ei];
+    if (f === 'name') ex.name = el.value.trim();
+    else ex.sets[si][f] = num(el.value);
+    document.getElementById('fromTpl')?.remove();
+    document.getElementById('sum').innerHTML = sumHtml(db.logs[ui.date]);
+  }
+  save();
+});
+
+/* Volver a "hoy" si la app queda abierta y cambia el día */
+let lastToday = today();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && today() !== lastToday) {
+    if (ui.date === lastToday) ui.date = today();
+    lastToday = today(); render();
+  }
+});
+
+load().then(render);
+</script>
+</body>
+</html>
