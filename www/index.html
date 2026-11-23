@@ -167,6 +167,29 @@ function fromTemplate(date) {
 }
 function ensureLog(date) { if (!db.logs[date]) db.logs[date] = fromTemplate(date); return db.logs[date]; }
 
+/* Lleva un cambio de la Rutina a los días ya editados (hoy y futuros) de ese día de la semana.
+   Nunca toca un ejercicio que ya tenga alguna serie marcada ✓. */
+function syncTpl(day, { added, updated, removed, renamed } = {}) {
+  const key = n => (n || '').trim().toLowerCase();
+  const setsOf = t => Array.from({ length: Math.max(1, +t.sets || 1) }, () => ({ reps: t.reps ?? '', kg: t.kg ?? '', done: false }));
+  for (const d of Object.keys(db.logs)) {
+    if (d < today() || wd(d) !== day) continue;
+    const exs = db.logs[d].exercises;
+    const find = n => exs.findIndex(e => key(e.name) === key(n));
+    const touched = i => exs[i].sets.some(s => s.done);
+    if (added) {
+      const t = db.templates[day].find(x => key(x.name) === key(added));
+      if (t && find(added) < 0) exs.push({ name: t.name, sets: setsOf(t) });
+    }
+    if (updated) {
+      const t = db.templates[day].find(x => key(x.name) === key(updated)), i = find(updated);
+      if (t && i >= 0 && !touched(i)) exs[i].sets = setsOf(t);
+    }
+    if (removed) { const i = find(removed); if (i >= 0 && !touched(i)) exs.splice(i, 1); }
+    if (renamed) { const i = find(renamed[0]); if (i >= 0) exs[i].name = renamed[1]; }
+  }
+}
+
 function stats(sess) {
   let total = 0, done = 0, reps = 0, vol = 0;
   for (const ex of sess.exercises) for (const s of ex.sets) {
@@ -296,7 +319,7 @@ function vRutina() {
   const opts = DIAS.map((n, i) => i === day ? '' : `<option value="${i}">${n}</option>`).join('');
   return `
     <h2>Rutina semanal</h2>
-    <p class="mut">Plantilla por día. Se usa en los días que todavía no has editado en Entreno.</p>
+    <p class="mut">Plantilla por día. Los cambios se aplican a hoy y a los días siguientes; los ejercicios con series ya marcadas ✓ no se tocan.</p>
     <div class="days">${days}</div>
     <h3>${DIAS[day]} · ${list.length} ejercicio${list.length === 1 ? '' : 's'}</h3>
     ${cards || `<div class="empty">Día de descanso (sin ejercicios).</div>`}
@@ -375,14 +398,16 @@ document.addEventListener('click', async e => {
     case 'delEx': {
       const l = scope === 'tpl' ? db.templates[ui.tplDay] : (db.logs[ui.date] || fromTemplate(ui.date)).exercises;
       if (!(await ask(`¿Eliminar "${l[ei].name}"?`, 'Eliminar'))) return;
-      listOf(scope).splice(ei, 1); save(); break;
+      const [gone] = listOf(scope).splice(ei, 1);
+      if (scope === 'tpl') syncTpl(ui.tplDay, { removed: gone.name });
+      save(); break;
     }
     case 'addEx': {
       const name = document.getElementById('nName').value.trim();
       if (!name) { document.getElementById('nName').focus(); return; }
       const sets = Math.max(1, parseInt(document.getElementById('nSets').value) || 1);
       const reps = num(document.getElementById('nReps').value);
-      if (scope === 'tpl') db.templates[ui.tplDay].push({ name, sets, reps, kg: '' });
+      if (scope === 'tpl') { db.templates[ui.tplDay].push({ name, sets, reps, kg: '' }); syncTpl(ui.tplDay, { added: name }); }
       else {
         const prev = previous(name, ui.date);              // reutiliza el peso de la última vez
         const kg = prev ? prev.sets[prev.sets.length - 1].kg : '';
@@ -393,7 +418,8 @@ document.addEventListener('click', async e => {
     case 'copyTpl': {
       const to = +document.getElementById('copyTo').value;
       if (db.templates[to].length && !(await ask(`¿Reemplazar la rutina del ${DIAS[to].toLowerCase()}?`, 'Reemplazar'))) return;
-      db.templates[to] = db.templates[ui.tplDay].map(t => ({ ...t })); save(); toast(`Copiado a ${DIAS[to]}`); break;
+      db.templates[to] = db.templates[ui.tplDay].map(t => ({ ...t }));
+      db.templates[to].forEach(t => syncTpl(to, { added: t.name })); save(); toast(`Copiado a ${DIAS[to]}`); break;
     }
     case 'saveTpl': {
       const day = wd(ui.date), sess = db.logs[ui.date] || fromTemplate(ui.date);
@@ -435,8 +461,9 @@ document.addEventListener('change', e => {
   if (!f) return;
   const ei = +el.dataset.ei, si = +el.dataset.si;
   if (el.dataset.s === 'tpl') {
-    const t = db.templates[ui.tplDay][ei];
+    const t = db.templates[ui.tplDay][ei], old = t.name;
     t[f] = f === 'name' ? el.value.trim() : f === 'sets' ? Math.max(1, parseInt(el.value) || 1) : num(el.value);
+    syncTpl(ui.tplDay, f === 'name' ? { renamed: [old, t.name] } : { updated: t.name });
   } else {
     const ex = ensureLog(ui.date).exercises[ei];
     if (f === 'name') ex.name = el.value.trim();
